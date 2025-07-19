@@ -205,3 +205,9 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+
+# Cloned repositories
+sparse_coding
+!sparse_coding/basic_l1_sweep.py
+*.pt

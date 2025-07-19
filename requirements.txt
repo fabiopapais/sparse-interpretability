@@ -1,0 +1,13 @@
+# Minimal requirements for running script.py
+torch==2.7.1+cu118
+torchopt==0.7.3
+torchtyping==0.1.5
+transformer-lens @ git+https://github.com/neelnanda-io/TransformerLens@ae32fa54ad40cb2c3f3a60f1837d0b4899c8daae
+datasets>=2.12.0
+tqdm>=4.65.0
+scikit-learn==1.7.1
+progressbar==2.5
+boto3==1.39.9
+baukit==0.0.1
+wandb==0.21.0
+pickle5==0.0.11

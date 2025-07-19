@@ -12,7 +12,7 @@ import os
 torch.manual_seed(42)
 
 model = HookedTransformer.from_pretrained("EleutherAI/pythia-70m-deduped", device='cuda:0')
-dataset = datasets.load_dataset("Salesforce/wikitext", name="wikitext-2-raw-v1", split="train[:30000]", ignore_verifications=True)
+dataset = datasets.load_dataset("Salesforce/wikitext", name="wikitext-2-raw-v1", split="train[:30000]")
 
 # --- Configurações ---
 SAVE_CHUNK_SIZE = 200  # Salvar um arquivo a cada 200 batches
