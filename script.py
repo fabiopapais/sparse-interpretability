@@ -1,7 +1,3 @@
-# This file contains the script to run the model and extract activations from the 44k rows version of the dataset,
-# IT IS NOT UP TO DATE WITH THE ipynb!!!!
-# It extracts the activations and saves them on a file, and is useful as a script to run in a cluster
-
 # import transformer_lens
 # import transformer_lens.utils as utils
 # from transformer_lens.hook_points import (
@@ -12,6 +8,7 @@ from tqdm import tqdm
 import torch
 from torch.utils.data import DataLoader
 import datasets
+import os
 
 torch.manual_seed(42)
 
@@ -37,6 +34,14 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
  
 # (Assumindo que model, dataset, etc., estão definidos)
 # ...
+
+def create_batch(batch):
+    texts = [item["text"] for item in batch if item['text']]
+    if not texts:
+        return None
+    tokens = model.to_tokens(texts)
+    return tokens
+
  
 layers = list(range(1, 2))
 # Não vamos mais usar um dicionário para guardar tudo, vamos salvar direto.
