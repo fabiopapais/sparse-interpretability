@@ -1,7 +1,7 @@
-""""
+"""
 Replace the original this file to the sparse_coding directory.
 sparse_coding/autoencoders/sae_ensemble.py
-""""
+"""
 
 import copy
 

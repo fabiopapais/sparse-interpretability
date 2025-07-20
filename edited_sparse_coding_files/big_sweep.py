@@ -16,6 +16,8 @@ import tqdm
 from transformer_lens import HookedTransformer
 from transformers import GPT2Tokenizer
 
+import matplotlib.pyplot as plt
+
 import standard_metrics
 import wandb
 from activation_dataset import (check_transformerlens_model,
@@ -156,7 +158,77 @@ def log_standard_metrics(learned_dicts, chunk, chunk_num, hyperparam_ranges, cfg
             cfg.wandb_instance.log({f"sparsity_hist_{chunk_num}/{k}": wandb.Image(plot)})
 
 
-def ensemble_train_loop(ensemble, cfg, args, ensemble_name, sampler, dataset, progress_counter):
+class LossTracker:
+    def __init__(self, n_models, log_interval=200):
+        self.n_models = n_models
+        self.log_interval = log_interval
+        self.iteration = 0
+        self.losses_history = {}  # {loss_type: {model_idx: [values]}}
+        self.logged_iterations = []
+        
+    def update(self, losses):
+        self.iteration += 1
+        
+        if self.iteration % self.log_interval == 0:
+            self.logged_iterations.append(self.iteration)
+            
+            print(f"Iteration {self.iteration} - Losses:")
+            
+            for loss_name, loss_tensor in losses.items():
+                if loss_name not in self.losses_history:
+                    self.losses_history[loss_name] = {i: [] for i in range(self.n_models)}
+                
+                loss_values = loss_tensor.detach().cpu().numpy()
+                print(f"  {loss_name}: {loss_values}")
+                
+                for model_idx in range(self.n_models):
+                    self.losses_history[loss_name][model_idx].append(loss_values[model_idx])
+            
+            print()
+    
+    def plot_and_save(self, save_dir, filename_prefix="loss_plot"):
+        if not self.logged_iterations:
+            print("No data to plot")
+            return
+            
+        colors = ['blue', 'red', 'green', 'orange', 'purple']
+        
+        for loss_name, model_losses in self.losses_history.items():
+            plt.figure(figsize=(10, 6))
+            
+            for model_idx in range(self.n_models):
+                color = colors[model_idx % len(colors)]
+                plt.plot(self.logged_iterations, 
+                        model_losses[model_idx], 
+                        color=color, 
+                        label=f'Model {model_idx}',
+                        linewidth=2)
+            
+            plt.xlabel('Iteration')
+            plt.ylabel(loss_name)
+            plt.title(f'{loss_name} over training iterations')
+            plt.legend()
+            plt.grid(True, alpha=0.3)
+            
+            save_path = os.path.join(save_dir, f"{filename_prefix}_{loss_name}.png")
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            plt.close()
+            print(f"Saved {loss_name} plot to {save_path}")
+    
+    def get_current_stats(self):
+        """Get current statistics for logging"""
+        if not self.logged_iterations:
+            return {}
+            
+        stats = {}
+        for loss_name, model_losses in self.losses_history.items():
+            for model_idx in range(self.n_models):
+                if model_losses[model_idx]:  # If there's data
+                    current_loss = model_losses[model_idx][-1]
+                    stats[f"{loss_name}_model_{model_idx}"] = current_loss
+        return stats
+
+def ensemble_train_loop(ensemble, cfg, args, ensemble_name, sampler, dataset, progress_counter, loss_tracker, chunk_index):
     torch.set_grad_enabled(False)
     torch.manual_seed(0)
     np.random.seed(0)
@@ -170,24 +242,13 @@ def ensemble_train_loop(ensemble, cfg, args, ensemble_name, sampler, dataset, pr
         batch = dataset[batch_idxs].to(args["device"])
         losses, aux_buffer = ensemble.step_batch(batch)
 
+        # update loss tracker
+        loss_tracker.update(losses)
+
         num_nonzero = aux_buffer["c"].count_nonzero(dim=-1).float().mean(dim=-1)
 
         for m in range(ensemble.n_models):
-            print(args["l1"])
             hyperparam_values = {"l1": args["l1"][m]}
-
-            # for ep in cfg.ensemble_hyperparams:
-            #     if ep in args:
-            #         hyperparam_values[ep] = args[ep]
-            #     else:
-            #         raise ValueError(f"Hyperparameter {ep} not found in args")
-
-            # for bp in cfg.buffer_hyperparams:
-            #     if bp in ensemble.buffers:
-            #         hyperparam_values[bp] = ensemble.buffers[bp][m].item()
-            #     else:
-            #         raise ValueError(f"Hyperparameter {bp} not found in buffers")
-
             name = make_hyperparam_name(hyperparam_values)
 
             for k in losses.keys():
@@ -200,6 +261,9 @@ def ensemble_train_loop(ensemble, cfg, args, ensemble_name, sampler, dataset, pr
 
         progress_counter.value = i
 
+    # Save plots at the end of training
+    loss_tracker.plot_and_save('./sweep_outputs', filename_prefix=f"{ensemble_name}_losses_{chunk_index}")
+    
     return log
 
 

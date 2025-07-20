@@ -15,7 +15,7 @@ import datetime
 import pickle
 from autoencoders.sae_ensemble import FunctionalTiedSAE
 from autoencoders.ensemble import FunctionalEnsemble
-from big_sweep import ensemble_train_loop, unstacked_to_learned_dicts
+from big_sweep import ensemble_train_loop, unstacked_to_learned_dicts, LossTracker
 from config import TrainArgs, EnsembleArgs
 
 class ProgressBar:
@@ -94,6 +94,8 @@ def basic_l1_sweep(
 
     os.makedirs(output_dir, exist_ok=True)
 
+    loss_tracker = LossTracker(n_models=ensemble.n_models, log_interval=10000)
+
     for epoch_idx in range(n_repetitions):
         chunk_order = np.random.permutation(n_chunks)
 
@@ -119,7 +121,7 @@ def basic_l1_sweep(
             cfg = TrainArgs()
             cfg.use_wandb = False
 
-            loss = ensemble_train_loop(ensemble, cfg, args, "ensemble", sampler, dataset, bar)
+            loss = ensemble_train_loop(ensemble, cfg, args, "ensemble", sampler, dataset, bar, loss_tracker, chunk_idx)
 
             if save_after_every:
                 learned_dicts = unstacked_to_learned_dicts(ensemble, args, ["dict_size"], ["l1_alpha"])
@@ -129,6 +131,8 @@ def basic_l1_sweep(
 
                 torch.save(learned_dicts, os.path.join(output_dir, f"learned_dicts_epoch_{epoch_idx}_chunk_{chunk_idx}.pt"))
         
+        loss_tracker.plot_and_save('./sweep_outputs', filename_prefix=f"complete")
+
         if not save_after_every:
             learned_dicts = unstacked_to_learned_dicts(ensemble, args, ["dict_size"], ["l1_alpha"])
         
