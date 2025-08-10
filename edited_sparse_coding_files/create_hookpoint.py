@@ -12,7 +12,7 @@ EMBEDDING_DIM = 512
 activation_dim = SEQUENCE_LEN * EMBEDDING_DIM
 ratio = 1.0
 latent_dim = int(ratio * activation_dim)
-model_weights_filename = './sweep_outputs/learned_dicts_epoch_0_chunk_17.pt'
+model_weights_filename = '../sweep_outputs/learned_dicts_epoch_0_chunk_17.pt'
 
 print(np.logspace(-4, -2, 16))
 models: List[TiedSAE] = torch.load(model_weights_filename, weights_only=False)
@@ -26,7 +26,7 @@ def modelfunc(batch):
 l1 = 0.01
 
 hookpoint_to_sparse_encode = {
-    'layer2': modelfunc
+    'blocks.2.hook_resid_post': modelfunc
 }
 
 print(hookpoint_to_sparse_encode)
