@@ -3,6 +3,7 @@ from pathlib import Path
 from functools import partial
 import asyncio
 import orjson
+import json
 
 # Importações principais do Delphi
 from delphi.config import RunConfig, CacheConfig, ConstructorConfig, SamplerConfig
@@ -12,6 +13,7 @@ from delphi.explainers import DefaultExplainer
 from delphi.scorers import DetectionScorer, FuzzingScorer
 from delphi.pipeline import Pipeline, Pipe, process_wrapper
 from transformers import AutoTokenizer
+from huggingface_hub import login
 
 # --- 1. Configuração Geral ---
 # Esta configuração agora irá controlar o processo de interpretação.
@@ -20,6 +22,27 @@ hookpoints = ['layers.2']
 latents_path = Path("./results/my_run/latents") # Onde seu cache foi salvo
 explanations_path = Path("./results/my_run/explanations")
 scores_path = Path("./results/my_run/scores")
+
+hookpoint_path = latents_path / hookpoints[0] # hookpoints[0] é 'layers.2'
+hookpoint_path.mkdir(parents=True, exist_ok=True)
+
+# Defina a configuração do cache
+# Use os valores que correspondem a como você gerou os dados
+cache_config_data = {
+    "model_name": "EleutherAI/pythia-70m-deduped", # O modelo que gerou as ativações
+    "dataset_repo":"EleutherAI/SmolLM2-135M-10B",
+    "dataset_split": "train[:1%]",
+    "dataset_name": "EleutherAI/SmolLM2-135M-10B", # Corrigido para corresponder
+    "dataset_column": "text",
+    "ctx_len": 256 # O SEQUENCE_LENGTH usado no script.py
+}
+
+# Caminho para o arquivo de configuração
+config_file_path = hookpoint_path / "config.json"
+
+# Escreva o arquivo JSON
+with open(config_file_path, "w") as f:
+    json.dump(cache_config_data, f, indent=4)
 
 # Crie os diretórios de saída
 explanations_path.mkdir(parents=True, exist_ok=True)
@@ -31,7 +54,7 @@ constructor_cfg = ConstructorConfig(
     example_ctx_len=128 # Comprimento dos exemplos mostrados ao LLM
 )
 sampler_cfg = SamplerConfig(
-    n_examples_train=20, # Nº de exemplos para gerar a explicação
+    n_examples_train=50, # Nº de exemplos para gerar a explicação
     n_examples_test=30  # Nº de exemplos para avaliar a explicação
 )
 
@@ -39,6 +62,7 @@ sampler_cfg = SamplerConfig(
 # Escolha o LLM que fará as explicações e avaliações.
 # Lembre-se que ele precisa de VRAM suficiente. Llama-3 8B é uma boa opção.
 explainer_model_name = "meta-llama/Meta-Llama-3-8B-Instruct"
+# explainer_model_name = "EleutherAI/pythia-70m-deduped"
 
 llm_client = Offline(
     model=explainer_model_name,
@@ -73,6 +97,9 @@ def explainer_postprocess(result):
 
 # Função para preparar os dados para os scorers
 def scorer_preprocess(result):
+    if isinstance(result, list):
+        result = result[0]
+
     record = result.record
     record.explanation = result.explanation # Adiciona a explicação gerada ao registro
     record.extra_examples = record.not_active
