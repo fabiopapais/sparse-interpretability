@@ -16,7 +16,7 @@ from transformers import AutoTokenizer
 # --- 1. Configuração Geral ---
 # Esta configuração agora irá controlar o processo de interpretação.
 model_name = "EleutherAI/pythia-70m-deduped"
-hookpoints = ['layers.2.attention']
+hookpoints = ['layers.2']
 latents_path = Path("./results/my_run/latents") # Onde seu cache foi salvo
 explanations_path = Path("./results/my_run/explanations")
 scores_path = Path("./results/my_run/scores")
@@ -132,3 +132,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
