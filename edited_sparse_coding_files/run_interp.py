@@ -47,7 +47,7 @@ modelfunc = ModelFunc(model)
 l1 = 0.01
 
 hookpoint_to_sparse_encode = {
-    'layers.2.attention': modelfunc
+    'layers.2': modelfunc
 }
 
 print(hookpoint_to_sparse_encode)
@@ -58,7 +58,7 @@ print(hookpoint_to_sparse_encode)
 model_name = "EleutherAI/pythia-70m" # Seu modelo base
 sae_name = "EleutherAI/sae-pythia-70m-32k" # Seu SAE
 # hookpoints = ["blocks.2.hook_resid_post"]
-hookpoints = ["layers.2.attention"]
+hookpoints = ["layers.2"]
 cache_cfg = CacheConfig(
     dataset_repo="EleutherAI/SmolLM2-135M-10B",
     dataset_split="train[:1%]",
@@ -108,5 +108,4 @@ cache.save_splits(
 )
 
 print("Caching concluído!")
-
 
