@@ -23,16 +23,31 @@ model_weights_filename = '../sweep_outputs/learned_dicts_epoch_0_chunk_17.pt'
 print(np.logspace(-4, -2, 16))
 models: List[TiedSAE] = torch.load(model_weights_filename, weights_only=False)
 
-model = models[-1]
+model = models[-1][0]
 
-def modelfunc(batch):
-    with torch.no_grad():
-        return model.encode(batch)
+print("model: ", model)
+
+class ModelFunc:
+    def __init__(self, mdl):
+        self.model = mdl
+
+    def __call__(self, batch):
+        batch_size, seq_len, hidden_dim = batch.shape
+        reshaped_batch = batch.view(-1, hidden_dim)
+
+        latent = None
+
+        with torch.no_grad():
+            latent = self.model.encode(batch)
+
+        return latent.view(batch_size, seq_len, -1)
+
+modelfunc = ModelFunc(model)
 
 l1 = 0.01
 
 hookpoint_to_sparse_encode = {
-    'blocks.2.hook_resid_post': modelfunc
+    'layers.2.attention': modelfunc
 }
 
 print(hookpoint_to_sparse_encode)
@@ -42,6 +57,8 @@ print(hookpoint_to_sparse_encode)
 # Aqui estão os parâmetros essenciais para o cache
 model_name = "EleutherAI/pythia-70m" # Seu modelo base
 sae_name = "EleutherAI/sae-pythia-70m-32k" # Seu SAE
+# hookpoints = ["blocks.2.hook_resid_post"]
+hookpoints = ["layers.2.attention"]
 cache_cfg = CacheConfig(
     dataset_repo="EleutherAI/SmolLM2-135M-10B",
     dataset_split="train[:1%]",
