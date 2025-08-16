@@ -9,6 +9,7 @@ from delphi.latents import LatentCache
 from delphi.sparse_coders import load_hooks_sparse_coders
 from delphi.utils import load_tokenized_data
 from pathlib import Path
+import json
 
 device = torch.device('cuda:0')
 
@@ -56,7 +57,9 @@ print(hookpoint_to_sparse_encode)
 # Supondo que você tenha uma RunConfig como a do __main__.py
 # Aqui estão os parâmetros essenciais para o cache
 model_name = "EleutherAI/pythia-70m" # Seu modelo base
-sae_name = "EleutherAI/sae-pythia-70m-32k" # Seu SAE
+# sae_name = "EleutherAI/sae-pythia-70m-32k" # Seu SAE
+sae_name = "MeuSAE" # Seu SAE
+
 # hookpoints = ["blocks.2.hook_resid_post"]
 hookpoints = ["layers.2"]
 cache_cfg = CacheConfig(
@@ -79,6 +82,27 @@ tokenizer = AutoTokenizer.from_pretrained(model_name)
 # Carrega o SAE e o acopla ao modelo base via hooks
 # (Simplificação da lógica em __main__.py)
 run_cfg = RunConfig(model=model_name, sparse_model=sae_name, hookpoints=hookpoints, cache_cfg=cache_cfg, constructor_cfg=None, sampler_cfg=None)
+
+hookpoint_path = latents_path / hookpoints[0] # hookpoints[0] é 'layers.2'
+hookpoint_path.mkdir(parents=True, exist_ok=True)
+
+# Defina a configuração do cache
+# Use os valores que correspondem a como você gerou os dados
+cache_config_data = {
+    "model_name": "EleutherAI/pythia-70m-deduped", # O modelo que gerou as ativações
+    "dataset_repo":"EleutherAI/SmolLM2-135M-10B",
+    "dataset_split": "train[:1%]",
+    "dataset_name": "EleutherAI/SmolLM2-135M-10B", # Corrigido para corresponder
+    "dataset_column": "text",
+    "ctx_len": 256 # O SEQUENCE_LENGTH usado no script.py
+}
+
+# Caminho para o arquivo de configuração
+config_file_path = hookpoint_path / "config.json"
+
+# Escreva o arquivo JSON
+with open(config_file_path, "w") as f:
+    json.dump(cache_config_data, f, indent=4)
 
 # hookpoint_to_sparse_encode, transcode = load_hooks_sparse_coders(model, run_cfg)
 # hookpoint_to_sparse_encode uses custom logic
