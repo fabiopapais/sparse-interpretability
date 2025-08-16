@@ -38,7 +38,7 @@ class ModelFunc:
         latent = None
 
         with torch.no_grad():
-            latent = self.model.encode(batch)
+            latent = self.model.encode(reshaped_batch)
 
         return latent.view(batch_size, seq_len, -1)
 
